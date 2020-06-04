@@ -1,0 +1,240 @@
+---
+pagetitle: Rmd report
+output:
+  html_document:
+    highlight: zenburn
+    theme: cosmo
+    df_print: paged
+    toc: yes
+    code_folding: hide
+    code_download: true
+---
+
+```{r r_setup, include = FALSE}
+## initial settings
+knitr::opts_chunk$set(
+  comment = NA,
+  echo = TRUE,
+  error = TRUE,
+  cache = FALSE,
+  message = FALSE,
+
+  dpi = 96,
+  warning = FALSE
+)
+
+## width to use when printing tables etc.
+options(
+  width = 250,
+  scipen = 100,
+  max.print = 5000,
+  stringsAsFactors = FALSE
+)
+
+## make all required libraries available by loading radiant package if needed
+if (is.null(shiny::getDefaultReactiveDomain())) library(radiant)
+
+## include code to load the data you require
+## for interactive use attach the r_data environment
+# attach(r_data)
+```
+
+<style>
+.btn, .form-control, pre, code, pre code {
+  border-radius: 4px;
+}
+.table {
+  width: auto;
+}
+ul, ol {
+  padding-left: 18px;
+}
+code, pre, pre code {
+  overflow: auto;
+  white-space: pre;
+  word-wrap: normal;
+}
+code {
+  color: #c7254e;
+  background-color: #f9f2f4;
+}
+pre {
+  background-color: #ffffff;
+}
+</style>
+
+## Assignment 9 - Peter Cuomo
+
+# Question 1
+
+* R-squared for this model is **.33**
+* For every unit increase in Price there is a -78.607 decrease in Demand. 
+
+```{r}
+result <- regress(
+  CodfishStand, 
+  rvar = "Demand", 
+  evar = "Price"
+)
+summary(result)
+```
+# Question 2 
+
+
+**Response variable: Demand_ln** 
+
+**Explanatory variables: Price** 
+
+* R squared decreased to **.177**
+```{r fig.width = 7, fig.height = 8.08, dpi = 144}
+result <- regress(
+  CodfishStand, 
+  rvar = "Demand_ln", 
+  evar = "Price"
+)
+summary(result)
+
+```
+**Response variable: Demand_ln** 
+
+**Explanatory variables: Price_ln** 
+
+* R squared decreased to **.173**
+
+```{r}
+result <- regress(
+  CodfishStand, 
+  rvar = "Demand_ln", 
+  evar = "Price_ln"
+)
+summary(result)
+```
+
+**Response variable: Demand** 
+
+**Explanatory variables: Price_ln**
+
+* R squared decreased to **.328**
+```{r}
+result <- regress(
+  CodfishStand, 
+  rvar = "Demand", 
+  evar = "Price_ln"
+)
+summary(result)
+```
+# Question 3
+
+* Prediction = **576.582**
+
+  Standard Error = 287.274/1.967
+  
+  
+* Standard Error = **146.047**.
+
+
+```{r}
+result <- regress(
+  CodfishStand, 
+  rvar = "Demand", 
+  evar = "Price"
+)
+summary(result)
+pred <- predict(result, pred_data = CodfishStand, pred_cmd = "Price=7.50", interval = "prediction")
+print(pred, n = 10)
+CodfishStand <- store(CodfishStand, pred, name = "pred_reg")
+```
+
+# Question 4 
+
+* The mean predicted profit is **$1,361.5**
+* The mean predicted outofstock probability is **.702**
+
+```{r}
+simdat <- simulater(
+  const = c("Cost 4.5", "Sale 7.5", "Unsold 2.50", "q 500"), 
+  norm = "D 576.582 146.047", 
+  form = c(
+    "prof=-Cost*q+Sale*ifelse(D>q,q,D)+Unsold*ifelse(D>q,0,q-D)", 
+    "outofstock=ifelse(D>q,1,0)"
+  ), 
+  seed = 1234, 
+  nr = 100000
+)
+summary(simdat, dec = 4)
+register("simdat")
+```
+
+# Question 5 
+
+* Optimal q is  **614** 
+* The estimated out of stock probability for q of 614 is **.40**
+* The mean outofstock for this gridsearch is .3550
+
+```{r}
+repdat <- repeater(
+  simdat, 
+  vars = "q", 
+  grid = "q 350 1000 1", 
+  sum_vars = c("q", "prof", "outofstock"), 
+  byvar = "rep", 
+  fun = "mean", 
+  seed = 1234
+)
+summary(repdat, dec = 4)
+register("repdat")
+```
+# Question 6 
+
+* For both March 2nd and March 3rd the demand mean and standard error would be: **576.582 and 146.047**
+
+```{r}
+result <- regress(
+  CodfishStand, 
+  rvar = "Demand", 
+  evar = "Price"
+)
+summary(result)
+pred <- predict(result, pred_data = CodfishStand, pred_cmd = "Price=7.50")
+print(pred, n = 10)
+CodfishStand <- store(CodfishStand, pred, name = "pred_reg")
+```
+# Question 7 
+
+* The expected profit is **4,376.0561**
+* The outofstock probability is **.8192**
+
+```{r}
+simdat <- simulater(
+  const = c("Cost 4.5", "Sale 7.5", "Unsold 2.50", "q 1500"), 
+  norm = c("D1 576.582 146.047", "D2 576.582 146.047", "D3 576.582 146.047"), 
+  form = c(
+    "prof=-Cost*q+Sale*ifelse(D1+D2+D3>q,q,D1+D2+D3)+Unsold*ifelse(D1+D2+D3>q,0,q-(D1+D2+D3))", 
+    "outofstock=ifelse(D1+D2+D3>q,1,0)"
+  ), 
+  seed = 1234, 
+  nr = 100000
+)
+summary(simdat, dec = 4)
+register("simdat")
+```
+# Question 8 
+
+* The optimal q for this scenario would be **1,795**
+* The estimate outofstock percentage for q of 1,795 is .40
+* The mean outofstock for this gridsearch is 0.6065
+
+```{r}
+repdat <- repeater(
+  simdat, 
+  vars = "q", 
+  grid = "q 1000 2200 1", 
+  sum_vars = c("q", "prof", "outofstock"), 
+  byvar = "rep", 
+  fun = "mean", 
+  seed = 1234
+)
+summary(repdat, dec = 4)
+register("repdat")
+```
+
